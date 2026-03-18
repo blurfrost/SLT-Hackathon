@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "BigCommunity",
+    "slug": "bigcommunity",
+    "scheme": "bigcommunity",
+    "version": "0.1.0",
+    "description": "BigCommunity announcement platform starter built with Expo, React Native, and TypeScript.",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f4efe6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
