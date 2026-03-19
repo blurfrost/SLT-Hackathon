@@ -1,3 +1,4 @@
+import { Link } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -6,66 +7,50 @@ import { Screen } from "@/components/Screen";
 import { TagSelector } from "@/components/TagSelector";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
-import { roleOptions } from "@/data/tagOptions";
 import { announcementService } from "@/services/announcementService";
-import { Announcement, AnnouncementInput, TagId, UserRole } from "@/types";
+import { Announcement, AnnouncementInput, TagId } from "@/types";
 
-const defaultAudience: UserRole[] = ["admin", "member", "organiser"];
-
-function createEmptyDraft(initialTags: TagId[] = []): AnnouncementInput {
+function announcementToDraft(announcement: Announcement): AnnouncementInput {
   return {
-    title: "",
-    summary: "",
-    body: "",
-    category: "Event",
-    audience: [...defaultAudience],
-    tags: initialTags
+    title: announcement.title,
+    summary: announcement.summary,
+    body: announcement.body,
+    category: announcement.category,
+    audience: [...announcement.audience],
+    tags: [...announcement.tags]
   };
 }
 
 export default function AnnouncementsScreen() {
-  const { state, createAnnouncement, updateAnnouncement, deleteAnnouncement } = useAppContext();
+  const { state, updateAnnouncement, deleteAnnouncement } = useAppContext();
   const role = state.currentUser?.role;
   const canCreateAnnouncements = role === "organiser" || role === "admin";
   const canAdminManageAnnouncements = role === "admin";
 
   const [visibleAnnouncements, setVisibleAnnouncements] = useState<Announcement[]>(state.announcements);
-  const [matchedAnnouncements, setMatchedAnnouncements] = useState<Announcement[]>([]);
-  const [draftAnnouncement, setDraftAnnouncement] = useState<AnnouncementInput>(createEmptyDraft(state.currentUser?.interests ?? []));
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<AnnouncementInput | null>(null);
   const [formError, setFormError] = useState("");
   const [formMessage, setFormMessage] = useState("");
 
   const pageSubtitle = useMemo(() => {
     if (canAdminManageAnnouncements) {
-      return "Admins can create, edit, and delete announcements while controlling their assigned tags.";
+      return "Admins can edit and delete any announcement while managing associated tags.";
     }
 
-    if (role === "organiser") {
-      return "Create event announcements and assign the relevant tags so members get targeted updates.";
+    if (role === "organiser" || role === "member") {
+      return "Showing announcements that match the tags you selected in your profile.";
     }
 
     return "A simple, scalable listing page for community-wide updates, notices, and event messages.";
   }, [canAdminManageAnnouncements, role]);
 
   useEffect(() => {
-    if (editingAnnouncementId) {
-      return;
-    }
-
-    setDraftAnnouncement(createEmptyDraft(state.currentUser?.interests ?? []));
-  }, [editingAnnouncementId, state.currentUser?.interests]);
-
-  useEffect(() => {
     let isMounted = true;
 
-    Promise.all([
-      announcementService.listAnnouncementsForUser(state.currentUser, state.announcements),
-      announcementService.listTagMatchedAnnouncementsForUser(state.currentUser, state.announcements)
-    ]).then(([roleVisible, tagMatched]) => {
+    announcementService.listAnnouncementsForUser(state.currentUser, state.announcements).then((roleVisible) => {
       if (isMounted) {
         setVisibleAnnouncements(roleVisible);
-        setMatchedAnnouncements(tagMatched);
       }
     });
 
@@ -74,68 +59,52 @@ export default function AnnouncementsScreen() {
     };
   }, [state.announcements, state.currentUser]);
 
-  const toggleDraftTag = (tagId: TagId) => {
-    setDraftAnnouncement((currentDraft) => ({
-      ...currentDraft,
-      tags: currentDraft.tags.includes(tagId)
-        ? currentDraft.tags.filter((currentTag) => currentTag !== tagId)
-        : [...currentDraft.tags, tagId]
-    }));
-  };
+  const toggleEditTag = (tagId: TagId) => {
+    setEditDraft((currentDraft) => {
+      if (!currentDraft) {
+        return currentDraft;
+      }
 
-  const toggleAudienceRole = (audienceRole: UserRole) => {
-    setDraftAnnouncement((currentDraft) => ({
-      ...currentDraft,
-      audience: currentDraft.audience.includes(audienceRole)
-        ? currentDraft.audience.filter((roleOption) => roleOption !== audienceRole)
-        : [...currentDraft.audience, audienceRole]
-    }));
+      return {
+        ...currentDraft,
+        tags: currentDraft.tags.includes(tagId)
+          ? currentDraft.tags.filter((currentTag) => currentTag !== tagId)
+          : [...currentDraft.tags, tagId]
+      };
+    });
   };
 
   const startEditAnnouncement = (announcement: Announcement) => {
     setEditingAnnouncementId(announcement.id);
-    setDraftAnnouncement({
-      title: announcement.title,
-      summary: announcement.summary,
-      body: announcement.body,
-      category: announcement.category,
-      audience: [...announcement.audience],
-      tags: [...announcement.tags]
-    });
+    setEditDraft(announcementToDraft(announcement));
     setFormError("");
     setFormMessage("Editing selected announcement");
   };
 
   const resetForm = () => {
     setEditingAnnouncementId(null);
-    setDraftAnnouncement(createEmptyDraft(state.currentUser?.interests ?? []));
+    setEditDraft(null);
   };
 
-  const handleSubmitAnnouncement = () => {
-    if (!draftAnnouncement.title.trim() || !draftAnnouncement.summary.trim() || !draftAnnouncement.body.trim()) {
+  const handleSubmitAnnouncementEdit = () => {
+    if (!editingAnnouncementId || !editDraft) {
+      return;
+    }
+
+    if (!editDraft.title.trim() || !editDraft.summary.trim() || !editDraft.body.trim()) {
       setFormError("Title, summary, and body are required.");
       return;
     }
 
-    if (draftAnnouncement.tags.length === 0) {
+    if (editDraft.tags.length === 0) {
       setFormError("Choose at least one tag for this announcement.");
-      return;
-    }
-
-    if (draftAnnouncement.audience.length === 0) {
-      setFormError("Choose at least one audience role.");
       return;
     }
 
     setFormError("");
 
-    if (editingAnnouncementId) {
-      updateAnnouncement(editingAnnouncementId, draftAnnouncement);
-      setFormMessage("Announcement updated successfully.");
-    } else {
-      createAnnouncement(draftAnnouncement);
-      setFormMessage("Announcement created successfully.");
-    }
+    updateAnnouncement(editingAnnouncementId, editDraft);
+    setFormMessage("Announcement updated successfully.");
 
     resetForm();
   };
@@ -170,14 +139,24 @@ export default function AnnouncementsScreen() {
         </View>
 
         {canCreateAnnouncements ? (
+          <View style={styles.createActionRow}>
+            <Link href="/announcements/create" asChild>
+              <Pressable style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>Create announcement</Text>
+              </Pressable>
+            </Link>
+          </View>
+        ) : null}
+
+        {canAdminManageAnnouncements && editingAnnouncementId && editDraft ? (
           <View style={styles.formCard}>
-            <Text style={styles.formTitle}>{editingAnnouncementId ? "Edit announcement" : "Create event announcement"}</Text>
+            <Text style={styles.formTitle}>Edit announcement</Text>
 
             <Text style={styles.label}>Title</Text>
             <TextInput
               style={styles.input}
-              value={draftAnnouncement.title}
-              onChangeText={(value) => setDraftAnnouncement((currentDraft) => ({ ...currentDraft, title: value }))}
+              value={editDraft.title}
+              onChangeText={(value) => setEditDraft((currentDraft) => (currentDraft ? { ...currentDraft, title: value } : currentDraft))}
               placeholder="Community town hall"
               placeholderTextColor={theme.colors.textMuted}
             />
@@ -185,8 +164,10 @@ export default function AnnouncementsScreen() {
             <Text style={styles.label}>Category</Text>
             <TextInput
               style={styles.input}
-              value={draftAnnouncement.category}
-              onChangeText={(value) => setDraftAnnouncement((currentDraft) => ({ ...currentDraft, category: value }))}
+              value={editDraft.category}
+              onChangeText={(value) =>
+                setEditDraft((currentDraft) => (currentDraft ? { ...currentDraft, category: value } : currentDraft))
+              }
               placeholder="Event"
               placeholderTextColor={theme.colors.textMuted}
             />
@@ -194,8 +175,10 @@ export default function AnnouncementsScreen() {
             <Text style={styles.label}>Summary</Text>
             <TextInput
               style={styles.input}
-              value={draftAnnouncement.summary}
-              onChangeText={(value) => setDraftAnnouncement((currentDraft) => ({ ...currentDraft, summary: value }))}
+              value={editDraft.summary}
+              onChangeText={(value) =>
+                setEditDraft((currentDraft) => (currentDraft ? { ...currentDraft, summary: value } : currentDraft))
+              }
               placeholder="Short one-line summary"
               placeholderTextColor={theme.colors.textMuted}
             />
@@ -203,8 +186,8 @@ export default function AnnouncementsScreen() {
             <Text style={styles.label}>Body</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              value={draftAnnouncement.body}
-              onChangeText={(value) => setDraftAnnouncement((currentDraft) => ({ ...currentDraft, body: value }))}
+              value={editDraft.body}
+              onChangeText={(value) => setEditDraft((currentDraft) => (currentDraft ? { ...currentDraft, body: value } : currentDraft))}
               placeholder="Share the full event details"
               placeholderTextColor={theme.colors.textMuted}
               multiline
@@ -212,69 +195,37 @@ export default function AnnouncementsScreen() {
               textAlignVertical="top"
             />
 
-            <Text style={styles.label}>Audience</Text>
-            <View style={styles.audienceGrid}>
-              {roleOptions.map((roleOption) => {
-                const isSelected = draftAnnouncement.audience.includes(roleOption.value);
-
-                return (
-                  <Pressable
-                    key={roleOption.value}
-                    onPress={() => toggleAudienceRole(roleOption.value)}
-                    style={[styles.audienceChip, isSelected && styles.audienceChipSelected]}
-                  >
-                    <Text style={[styles.audienceChipText, isSelected && styles.audienceChipTextSelected]}>{roleOption.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
             <TagSelector
               title="Announcement tags"
-              helperText="Assign tags so members subscribed to those tags see this announcement on their home feed."
+              helperText="Edit tags so members and organisers with matching preferences can discover this announcement."
               tags={state.tags}
-              selectedTags={draftAnnouncement.tags}
-              onToggleTag={toggleDraftTag}
+              selectedTags={editDraft.tags}
+              onToggleTag={toggleEditTag}
             />
 
             {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
             {formMessage ? <Text style={styles.successText}>{formMessage}</Text> : null}
 
             <View style={styles.formActions}>
-              <Pressable onPress={handleSubmitAnnouncement} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>{editingAnnouncementId ? "Save changes" : "Publish announcement"}</Text>
+              <Pressable onPress={handleSubmitAnnouncementEdit} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>Save changes</Text>
               </Pressable>
 
-              {editingAnnouncementId ? (
-                <Pressable
-                  onPress={() => {
-                    resetForm();
-                    setFormMessage("Edit cancelled.");
-                  }}
-                  style={styles.secondaryButton}
-                >
-                  <Text style={styles.secondaryButtonText}>Cancel edit</Text>
-                </Pressable>
-              ) : null}
+              <Pressable
+                onPress={() => {
+                  resetForm();
+                  setFormMessage("Edit cancelled.");
+                }}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>Cancel edit</Text>
+              </Pressable>
             </View>
           </View>
         ) : null}
 
-        {state.currentUser ? (
-          <View style={styles.list}>
-            <Text style={styles.sectionTitle}>Matched for your tags</Text>
-            {matchedAnnouncements.length > 0 ? (
-              matchedAnnouncements.map((announcement) => (
-                <AnnouncementCard key={`matched-${announcement.id}`} announcement={announcement} showSummary />
-              ))
-            ) : (
-              <Text style={styles.emptyText}>No matching event notifications yet for your current tag selections.</Text>
-            )}
-          </View>
-        ) : null}
-
         <View style={styles.list}>
-          <Text style={styles.sectionTitle}>All announcements</Text>
+          <Text style={styles.sectionTitle}>{canAdminManageAnnouncements ? "All announcements" : "Relevant announcements"}</Text>
           {visibleAnnouncements.length > 0 ? (
             visibleAnnouncements.map((announcement) => (
               <View key={announcement.id} style={styles.announcementItem}>
@@ -294,7 +245,11 @@ export default function AnnouncementsScreen() {
               </View>
             ))
           ) : (
-            <Text style={styles.emptyText}>No announcements are available for your role.</Text>
+            <Text style={styles.emptyText}>
+              {state.currentUser
+                ? "No announcements match your selected tags yet."
+                : "No announcements are available right now."}
+            </Text>
           )}
         </View>
       </ScrollView>
@@ -320,6 +275,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     maxWidth: 720
+  },
+  createActionRow: {
+    alignItems: "flex-start"
   },
   formCard: {
     backgroundColor: theme.colors.surface,
@@ -353,32 +311,6 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 120
-  },
-  audienceGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.xs
-  },
-  audienceChip: {
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.pill,
-    borderWidth: 1,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm
-  },
-  audienceChipSelected: {
-    backgroundColor: theme.colors.accentSoft,
-    borderColor: theme.colors.accent
-  },
-  audienceChipText: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "700"
-  },
-  audienceChipTextSelected: {
-    color: theme.colors.accent
   },
   errorText: {
     color: "#9a2f12",

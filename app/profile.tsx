@@ -37,7 +37,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    announcementService.listTagMatchedAnnouncementsForUser(user, state.announcements).then((announcements) => {
+    announcementService.listAnnouncementsForUser(user, state.announcements).then((announcements) => {
       if (isMounted) {
         setMatchedAnnouncements(announcements);
       }
@@ -147,19 +147,21 @@ export default function ProfileScreen() {
           <Text style={styles.value}>{user?.displayName ?? "Not signed in"}</Text>
           <Text style={styles.label}>Role</Text>
           <Text style={styles.value}>{user?.role ?? "Not assigned"}</Text>
-          <Text style={styles.label}>Interests</Text>
-          <Text style={styles.value}>{interests}</Text>
-          <Text style={styles.label}>Matching event notifications</Text>
+          {!isAdmin ? <Text style={styles.label}>Interests</Text> : null}
+          {!isAdmin ? <Text style={styles.value}>{interests}</Text> : null}
+          <Text style={styles.label}>{isAdmin ? "Visible announcements" : "Matching event notifications"}</Text>
           <Text style={styles.value}>
             {user
               ? matchedAnnouncements.length > 0
                 ? matchedAnnouncements.map((announcement) => announcement.title).join("\n")
-                : "No matching announcements yet"
+                : isAdmin
+                  ? "No announcements available yet"
+                  : "No matching announcements yet"
               : "Sign in to see matched notifications"}
           </Text>
         </View>
 
-        {user ? (
+        {user && !isAdmin ? (
           <View style={styles.card}>
             <TagSelector
               title="My tag preferences"

@@ -41,8 +41,9 @@ export default function RootLayout() {
               )
             }}
           />
-          
+
           <Stack.Screen name="announcements" options={{ title: "Back" }} />
+          <Stack.Screen name="announcements/create" options={{ title: "Create Announcement" }} />
           <Stack.Screen name="announcements/[id]" options={{ title: "Back" }} />
           <Stack.Screen name="profile" options={{ title: "Profile" }} />
           <Stack.Screen name="auth" options={{ title: "Authentication" }} />

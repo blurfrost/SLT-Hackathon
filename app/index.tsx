@@ -26,10 +26,7 @@ export default function HomeScreen() {
         return;
       }
 
-      const announcementsForHome =
-        state.currentUser.role === "member"
-          ? await announcementService.listTagMatchedAnnouncementsForUser(state.currentUser, state.announcements)
-          : await announcementService.listAnnouncementsForUser(state.currentUser, state.announcements);
+      const announcementsForHome = await announcementService.listAnnouncementsForUser(state.currentUser, state.announcements);
 
       if (isMounted) {
         setHomeAnnouncements(announcementsForHome);
@@ -44,8 +41,9 @@ export default function HomeScreen() {
   }, [state.announcements, state.currentUser]);
 
   const featuredAnnouncements = useMemo(() => homeAnnouncements.slice(0, 3), [homeAnnouncements]);
+  const usesTagMatching = state.currentUser?.role === "member" || state.currentUser?.role === "organiser";
   const featuredSubtitle =
-    state.currentUser?.role === "member"
+    usesTagMatching
       ? "Showing only announcements that match the tags you selected."
       : "These cards are driven by typed data and can later be sourced from Firestore.";
 
@@ -88,7 +86,7 @@ export default function HomeScreen() {
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>No matching announcements yet</Text>
               <Text style={styles.emptyBody}>
-                {state.currentUser?.role === "member"
+                {usesTagMatching
                   ? "Update your tag preferences in your profile to receive announcements relevant to you."
                   : "There are no announcements available right now."}
               </Text>

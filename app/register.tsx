@@ -19,6 +19,7 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<UserRole>("member");
   const [selectedTags, setSelectedTags] = useState<TagId[]>(["events", "updates"]);
   const [errorMessage, setErrorMessage] = useState("");
+  const shouldSelectTagsDuringRegistration = role === "member";
 
   const toggleTag = (tagId: TagId) => {
     setSelectedTags((currentTags) =>
@@ -46,7 +47,7 @@ export default function RegisterScreen() {
         email,
         password,
         role,
-        interests: selectedTags
+        interests: shouldSelectTagsDuringRegistration ? selectedTags : []
       });
 
       setCurrentUser(user);
@@ -107,19 +108,15 @@ export default function RegisterScreen() {
             <Text style={styles.rolePanelBody}>{roleDescriptions[role].description}</Text>
           </View>
 
-          <TagSelector
-            helperText={
-              role === "admin"
-                ? "These are sample tags the admin can manage and expand later."
-                : role === "organiser"
-                  ? "Choose which tags this organiser can apply to announcements."
-                  : "Choose the tags this member wants to receive updates about."
-            }
-            selectedTags={selectedTags}
-            tags={state.tags}
-            title={role === "member" ? "Interested tags" : "Assigned tags"}
-            onToggleTag={toggleTag}
-          />
+          {shouldSelectTagsDuringRegistration ? (
+            <TagSelector
+              helperText="Choose the tags this member wants to receive updates about."
+              selectedTags={selectedTags}
+              tags={state.tags}
+              title="Interested tags"
+              onToggleTag={toggleTag}
+            />
+          ) : null}
 
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 

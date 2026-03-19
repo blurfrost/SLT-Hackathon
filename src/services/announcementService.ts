@@ -35,12 +35,17 @@ export const announcementService = {
     }
 
     const roleVisibleAnnouncements = announcements.filter((announcement) => announcement.audience.includes(user.role));
-    return Promise.resolve(roleVisibleAnnouncements);
+    const relevantAnnouncements = roleVisibleAnnouncements.filter((announcement) => hasTagMatch(announcement.tags, user.interests));
+    return Promise.resolve(relevantAnnouncements);
   },
 
   async listTagMatchedAnnouncementsForUser(user: UserProfile | null, announcements: Announcement[] = mockAnnouncements): Promise<Announcement[]> {
     if (!user) {
       return Promise.resolve([]);
+    }
+
+    if (user.role === "admin") {
+      return Promise.resolve(announcements);
     }
 
     const tagMatchedAnnouncements = announcements.filter(
