@@ -1,11 +1,14 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+
+import { checkIfSignedUp, subscribeToEventSignups, submitSignup } from "@/services/signupService";
 
 import { Screen } from "@/components/Screen";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
-import { checkIfSignedUp, submitSignup } from "@/services/signupService";
+import { mockEventSignups } from "@/data/mockAnnouncements";
+import { EventSignup } from "@/types";
 
 export default function AnnouncementDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,10 +20,37 @@ export default function AnnouncementDetailScreen() {
   const [hasSignedUp, setHasSignedUp] = useState(Boolean(id && state.currentUser?.signedUpEventIds.includes(id)));
   const [checkingSignup, setCheckingSignup] = useState(true);
   const [hasCheckedSignup, setHasCheckedSignup] = useState(false);
+  const [attendees, setAttendees] = useState<EventSignup[]>([]);
+  const [loadingAttendees, setLoadingAttendees] = useState(true);
+
+  useEffect(() => {
+    if (!id) {
+      setAttendees([]);
+      setLoadingAttendees(false);
+      return;
+    }
+
+    setLoadingAttendees(true);
+
+    const unsubscribe = subscribeToEventSignups(
+      id,
+      (nextAttendees) => {
+        setAttendees(nextAttendees);
+        setLoadingAttendees(false);
+      },
+      (error) => {
+        console.error("Unable to subscribe to event signup data", error);
+        setAttendees([]);
+        setLoadingAttendees(false);
+      }
+    );
+
+    return unsubscribe;
+  }, [id]);
 
   useFocusEffect(
     useCallback(() => {
-      const check = async () => {
+      const loadSignupState = async () => {
         if (!id) {
           setHasSignedUp(false);
           setCheckingSignup(false);
@@ -28,14 +58,12 @@ export default function AnnouncementDetailScreen() {
           return;
         }
 
-        if (state.currentUser?.signedUpEventIds.includes(id)) {
-          setHasSignedUp(true);
-          setCheckingSignup(false);
-          setHasCheckedSignup(true);
-          return;
-        }
-
         try {
+          if (state.currentUser?.signedUpEventIds.includes(id)) {
+            setHasSignedUp(true);
+            return;
+          }
+
           if (!hasCheckedSignup) {
             setCheckingSignup(true);
           }
@@ -51,7 +79,7 @@ export default function AnnouncementDetailScreen() {
         }
       };
 
-      void check();
+      void loadSignupState();
     }, [hasCheckedSignup, id, state.currentUser?.id, state.currentUser?.signedUpEventIds])
   );
 
@@ -60,7 +88,9 @@ export default function AnnouncementDetailScreen() {
       return;
     }
 
-    if (!state.currentUser) {
+    const currentUser = state.currentUser;
+
+    if (!currentUser) {
       router.push({
         pathname: "/login",
         params: {
@@ -75,19 +105,36 @@ export default function AnnouncementDetailScreen() {
 
       await submitSignup({
         eventId: id,
-        name: state.currentUser.displayName,
-        email: state.currentUser.email,
-        userId: state.currentUser.id
+        name: currentUser.displayName,
+        email: currentUser.email,
+        userId: currentUser.id
       });
 
       setCurrentUser({
-        ...state.currentUser,
-        signedUpEventIds: state.currentUser.signedUpEventIds.includes(id)
-          ? state.currentUser.signedUpEventIds
-          : [...state.currentUser.signedUpEventIds, id]
+        ...currentUser,
+        signedUpEventIds: currentUser.signedUpEventIds.includes(id)
+          ? currentUser.signedUpEventIds
+          : [...currentUser.signedUpEventIds, id]
       });
 
       setHasSignedUp(true);
+      setAttendees((currentAttendees) => {
+        const alreadyPresent = currentAttendees.some((attendee) => attendee.userId === currentUser.id);
+
+        if (alreadyPresent) {
+          return currentAttendees;
+        }
+
+        return [
+          ...currentAttendees,
+          {
+            id: `local-${currentUser.id}`,
+            name: currentUser.displayName,
+            email: currentUser.email,
+            userId: currentUser.id
+          }
+        ];
+      });
       Alert.alert("Signed up", "Your event signup has been confirmed.");
     } catch (error) {
       console.error("Unable to sign up for event", error);
@@ -98,6 +145,24 @@ export default function AnnouncementDetailScreen() {
   };
 
   const announcement = state.announcements.find((item) => item.id === id);
+  const currentUser = state.currentUser;
+  const demoAttendees = id && __DEV__ ? mockEventSignups[id] ?? [] : ([] as EventSignup[]);
+  const userSignedUpFromProfile = Boolean(id && currentUser?.signedUpEventIds.includes(id));
+  const combinedAttendees = [...demoAttendees, ...attendees].filter(
+    (attendee, index, allAttendees) => allAttendees.findIndex((item) => item.userId === attendee.userId) === index
+  );
+  const displayedAttendees =
+    userSignedUpFromProfile && currentUser && !combinedAttendees.some((attendee) => attendee.userId === currentUser.id)
+      ? [
+          ...combinedAttendees,
+          {
+            id: `profile-${currentUser.id}`,
+            name: currentUser.displayName,
+            email: currentUser.email,
+            userId: currentUser.id
+          }
+        ]
+      : combinedAttendees;
 
   if (!announcement) {
     return (
@@ -161,6 +226,26 @@ export default function AnnouncementDetailScreen() {
               : "Log In to Sign Up"}
           </Text>
         </Pressable>
+
+        <View style={styles.attendeesCard}>
+          <Text style={styles.attendeesTitle}>Who&apos;s coming</Text>
+          <Text style={styles.attendeesCount}>
+            {loadingAttendees
+              ? "Loading attendees..."
+              : `${displayedAttendees.length} ${displayedAttendees.length === 1 ? "person is" : "people are"} coming`}
+          </Text>
+          {loadingAttendees ? null : displayedAttendees.length > 0 ? (
+            <View style={styles.attendeeList}>
+              {displayedAttendees.map((attendee) => (
+                <View key={attendee.id} style={styles.attendeeRow}>
+                  <Text style={styles.attendeeName}>{attendee.name}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.attendeesEmpty}>No one has signed up yet. Be the first to join this event.</Text>
+          )}
+        </View>
       </View>
     </Screen>
   );
@@ -247,6 +332,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: theme.spacing.sm
   },
+  attendeesCard: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    gap: theme.spacing.sm,
+    padding: theme.spacing.lg
+  },
+  attendeesTitle: { color: theme.colors.textPrimary, fontSize: 20, fontWeight: "800" },
+  attendeesCount: { color: theme.colors.textSecondary, fontSize: 15, lineHeight: 22 },
+  attendeeList: { gap: theme.spacing.sm, marginTop: theme.spacing.xs },
+  attendeeRow: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radii.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm
+  },
+  attendeeName: { color: theme.colors.textPrimary, fontSize: 15, fontWeight: "700" },
+  attendeesEmpty: { color: theme.colors.textSecondary, fontSize: 15, lineHeight: 22 },
   emptyState: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,

@@ -62,6 +62,13 @@ export type Announcement = {
   publishedAt: string;
 };
 
+export type EventSignup = {
+  id: string;
+  name: string;
+  email: string;
+  userId: string | null;
+};
+
 export type AnnouncementInput = {
   title: string;
   summary: string;
