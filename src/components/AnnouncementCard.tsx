@@ -4,7 +4,6 @@ import { useMemo } from "react";
 
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
-import { availableTags } from "@/data/tagOptions";
 import { Announcement } from "@/types";
 
 type AnnouncementCardProps = {
@@ -13,8 +12,8 @@ type AnnouncementCardProps = {
 };
 
 export function AnnouncementCard({ announcement, showSummary = false }: AnnouncementCardProps) {
-  const { setSelectedAnnouncement } = useAppContext();
-  const tagLabelMap = useMemo(() => new Map(availableTags.map((tag) => [tag.id, tag.label])), []);
+  const { setSelectedAnnouncement, state } = useAppContext();
+  const tagLabelMap = useMemo(() => new Map(state.tags.map((tag) => [tag.id, tag.label])), [state.tags]);
 
   return (
     <Link

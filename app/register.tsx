@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { AuthRoleSelector } from "@/components/AuthRoleSelector";
 import { TagSelector } from "@/components/TagSelector";
 import { Screen } from "@/components/Screen";
-import { availableTags, roleDescriptions } from "@/data/tagOptions";
+import { roleDescriptions } from "@/data/tagOptions";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
 import { authService } from "@/services/authService";
@@ -116,7 +116,7 @@ export default function RegisterScreen() {
                   : "Choose the tags this member wants to receive updates about."
             }
             selectedTags={selectedTags}
-            tags={availableTags}
+            tags={state.tags}
             title={role === "member" ? "Interested tags" : "Assigned tags"}
             onToggleTag={toggleTag}
           />

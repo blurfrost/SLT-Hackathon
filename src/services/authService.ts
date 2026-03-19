@@ -42,7 +42,7 @@ export const authService = {
         displayName: input.displayName,
         email: input.email.trim(),
         role: input.role,
-        interests: input.interests
+        interests: normalizeTagIds(input.interests)
       };
 
       try {
@@ -81,7 +81,7 @@ export const authService = {
         displayName: userProfile.displayName,
         email: userProfile.email,
         role: userProfile.role,
-        interests: userProfile.interests ?? []
+        interests: normalizeTagIds(userProfile.interests ?? [])
       };
     } catch (error) {
       if (error instanceof Error && !(error instanceof FirebaseError)) {

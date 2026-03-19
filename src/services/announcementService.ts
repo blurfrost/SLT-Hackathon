@@ -30,6 +30,10 @@ export const announcementService = {
       return Promise.resolve(announcements);
     }
 
+    if (user.role === "admin") {
+      return Promise.resolve(announcements);
+    }
+
     const roleVisibleAnnouncements = announcements.filter((announcement) => announcement.audience.includes(user.role));
     return Promise.resolve(roleVisibleAnnouncements);
   },

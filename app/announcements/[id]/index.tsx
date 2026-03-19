@@ -6,12 +6,13 @@ import { Screen } from "@/components/Screen";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export default function AnnouncementDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAppContext();
   const router = useRouter();
+  const tagLabelMap = useMemo(() => new Map(state.tags.map((tag) => [tag.id, tag.label])), [state.tags]);
 
   const [hasSignedUp, setHasSignedUp] = useState(false);
   const [checkingSignup, setCheckingSignup] = useState(true);
@@ -53,7 +54,9 @@ export default function AnnouncementDetailScreen() {
 
         <View style={styles.tagRow}>
           {announcement.tags.map((tag) => (
-            <Text key={tag} style={styles.tagChip}>{tag}</Text>
+            <Text key={tag} style={styles.tagChip}>
+              {tagLabelMap.get(tag) ?? tag}
+            </Text>
           ))}
         </View>
 
