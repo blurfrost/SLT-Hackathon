@@ -11,7 +11,6 @@ import { authService } from "@/services/authService";
 
 export default function HomeScreen() {
   const { state, setCurrentUser, setLoading } = useAppContext();
-  console.log("HomeScreen rendered");
 
   const privilegeLabel = state.currentUser
     ? roleOptions.find((option) => option.value === state.currentUser?.role)?.label ?? "Member"

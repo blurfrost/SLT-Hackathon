@@ -71,7 +71,7 @@ export default function RootLayout() {
               title: "BigCommunity",
               headerShown: false,
               headerRight: () => (
-                <Link href="./login" asChild>
+                <Link href="/login" asChild>
                   <Pressable style={styles.headerButton}>
                     <Text style={styles.headerButtonText}>Login</Text>
                   </Pressable>
