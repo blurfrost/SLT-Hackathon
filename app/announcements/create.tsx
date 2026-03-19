@@ -1,26 +1,42 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Screen } from "@/components/Screen";
 import { TagSelector } from "@/components/TagSelector";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
-import { TagId } from "@/types";
+import { announcementService } from "@/services/announcementService";
+import { TagId, UserRole } from "@/types";
 
-const defaultAudience = ["admin", "member", "organiser"] as const;
+const defaultAudience: UserRole[] = ["admin", "member", "organiser"];
 
 export default function CreateAnnouncementScreen() {
-  const { state, createAnnouncement } = useAppContext();
-  const role = state.currentUser?.role;
-  const canCreateAnnouncements = role === "organiser" || role === "admin";
+  const { state, setAnnouncements, setLoading } = useAppContext();
+  const user = state.currentUser;
+  const canCreateAnnouncements = user?.role === "organiser" || user?.role === "admin";
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Event");
   const [summary, setSummary] = useState("");
   const [body, setBody] = useState("");
-  const [selectedTags, setSelectedTags] = useState<TagId[]>(state.currentUser?.interests ?? []);
+  const [selectedTags, setSelectedTags] = useState<TagId[]>(user?.interests ?? []);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const orderedTags = useMemo(() => {
+    const priorityTagSet = new Set(user?.interests ?? []);
+
+    return [...state.tags].sort((left, right) => {
+      const leftPriority = priorityTagSet.has(left.id) ? 0 : 1;
+      const rightPriority = priorityTagSet.has(right.id) ? 0 : 1;
+
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+
+      return left.label.localeCompare(right.label);
+    });
+  }, [state.tags, user?.interests]);
 
   const toggleTag = (tagId: TagId) => {
     setSelectedTags((currentTags) =>
@@ -28,40 +44,72 @@ export default function CreateAnnouncementScreen() {
     );
   };
 
-  const handleCreate = () => {
-    if (!canCreateAnnouncements) {
-      setErrorMessage("Only organisers and admins can create announcements.");
+  const handleCreateAnnouncement = async () => {
+    if (!user || !canCreateAnnouncements) {
       return;
     }
 
-    if (!title.trim() || !summary.trim() || !body.trim()) {
-      setErrorMessage("Title, summary, and body are required.");
+    if (!title.trim() || !body.trim()) {
+      setErrorMessage("Title and details are required.");
       return;
     }
 
     if (selectedTags.length === 0) {
-      setErrorMessage("Select at least one tag.");
+      setErrorMessage("Select at least one related tag.");
       return;
     }
 
-    createAnnouncement({
-      title,
-      summary,
-      body,
-      category,
-      tags: selectedTags,
-      audience: [...defaultAudience]
-    });
+    try {
+      setLoading(true);
+      setErrorMessage("");
 
-    router.replace("/announcements");
+      const createdAnnouncement = await announcementService.createAnnouncement({
+        title,
+        category,
+        summary,
+        body,
+        tags: selectedTags,
+        audience: [...defaultAudience],
+        authorName: user.displayName
+      });
+
+      const announcements = await announcementService.listAnnouncements();
+      setAnnouncements(announcements);
+
+      router.replace({
+        pathname: "/announcements/[id]",
+        params: { id: createdAnnouncement.id }
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to create the announcement right now.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (!user) {
+    return (
+      <Screen>
+        <View style={styles.gateCard}>
+          <Text style={styles.gateTitle}>Log in to create announcements</Text>
+          <Text style={styles.gateBody}>Only organiser and admin accounts can publish new announcements.</Text>
+          <Pressable onPress={() => router.push("/login" as never)}>
+            <Text style={styles.inlineLink}>Go to login</Text>
+          </Pressable>
+        </View>
+      </Screen>
+    );
+  }
 
   if (!canCreateAnnouncements) {
     return (
       <Screen>
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Access restricted</Text>
-          <Text style={styles.emptyBody}>Only organisers and admins can create announcements.</Text>
+        <View style={styles.gateCard}>
+          <Text style={styles.gateTitle}>Access restricted</Text>
+          <Text style={styles.gateBody}>Only organisers and admins can create announcements.</Text>
+          <Pressable onPress={() => router.push("/announcements" as never)}>
+            <Text style={styles.inlineLink}>Back to announcements</Text>
+          </Pressable>
         </View>
       </Screen>
     );
@@ -69,10 +117,13 @@ export default function CreateAnnouncementScreen() {
 
   return (
     <Screen scrollEnabled>
-      <View style={styles.content}>
+      <View style={styles.wrapper}>
         <View style={styles.header}>
+          <Text style={styles.eyebrow}>Organizer tools</Text>
           <Text style={styles.title}>Create announcement</Text>
-          <Text style={styles.subtitle}>Add event details and tags so members and organisers with matching tags can discover it.</Text>
+          <Text style={styles.subtitle}>
+            Use clear details and relevant tags so members can quickly find announcements that matter to them.
+          </Text>
         </View>
 
         <View style={styles.card}>
@@ -94,7 +145,7 @@ export default function CreateAnnouncementScreen() {
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          <Text style={styles.label}>Summary</Text>
+          <Text style={styles.label}>Summary (optional)</Text>
           <TextInput
             style={styles.input}
             value={summary}
@@ -103,9 +154,9 @@ export default function CreateAnnouncementScreen() {
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          <Text style={styles.label}>Body</Text>
+          <Text style={styles.label}>Details</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.bodyInput]}
             value={body}
             onChangeText={setBody}
             placeholder="Share full event details"
@@ -116,9 +167,9 @@ export default function CreateAnnouncementScreen() {
           />
 
           <TagSelector
-            title="Announcement tags"
-            helperText="Tag this announcement so users with matching tag preferences can see it."
-            tags={state.tags}
+            title="Related tags"
+            helperText="Tags matching your organization interests are listed first."
+            tags={orderedTags}
             selectedTags={selectedTags}
             onToggleTag={toggleTag}
           />
@@ -126,8 +177,14 @@ export default function CreateAnnouncementScreen() {
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
           <View style={styles.actions}>
-            <Pressable onPress={handleCreate} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Publish announcement</Text>
+            <Pressable
+              disabled={state.isLoading}
+              onPress={handleCreateAnnouncement}
+              style={[styles.primaryButton, state.isLoading && styles.buttonDisabled]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {state.isLoading ? "Creating announcement..." : "Publish announcement"}
+              </Text>
             </Pressable>
 
             <Pressable onPress={() => router.back()} style={styles.secondaryButton}>
@@ -141,22 +198,31 @@ export default function CreateAnnouncementScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: theme.spacing.lg
+  wrapper: {
+    alignSelf: "center",
+    gap: theme.spacing.xl,
+    maxWidth: 760,
+    width: "100%"
   },
   header: {
     gap: theme.spacing.sm
   },
+  eyebrow: {
+    color: theme.colors.accent,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase"
+  },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: "800"
   },
   subtitle: {
     color: theme.colors.textSecondary,
     fontSize: 16,
-    lineHeight: 24,
-    maxWidth: 720
+    lineHeight: 24
   },
   card: {
     backgroundColor: theme.colors.surface,
@@ -164,13 +230,13 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.lg,
     borderWidth: 1,
     gap: theme.spacing.sm,
-    padding: theme.spacing.lg
+    padding: theme.spacing.xl
   },
   label: {
     color: theme.colors.textPrimary,
     fontSize: 14,
     fontWeight: "700",
-    marginTop: theme.spacing.xs
+    marginTop: theme.spacing.sm
   },
   input: {
     backgroundColor: theme.colors.background,
@@ -182,14 +248,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md
   },
-  textArea: {
-    minHeight: 140
+  bodyInput: {
+    minHeight: 150
+  },
+  errorText: {
+    color: "#9a2f12",
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
+    marginTop: theme.spacing.md
   },
   actions: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm
+    marginTop: theme.spacing.md
   },
   primaryButton: {
     alignItems: "center",
@@ -198,9 +271,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md
   },
+  buttonDisabled: {
+    opacity: 0.72
+  },
   primaryButtonText: {
     color: theme.colors.surface,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800"
   },
   secondaryButton: {
@@ -217,28 +293,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700"
   },
-  errorText: {
-    color: "#9a2f12",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20
-  },
-  emptyCard: {
+  gateCard: {
+    alignSelf: "center",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     borderWidth: 1,
     gap: theme.spacing.sm,
-    padding: theme.spacing.lg
+    maxWidth: 680,
+    padding: theme.spacing.xl,
+    width: "100%"
   },
-  emptyTitle: {
+  gateTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "800"
   },
-  emptyBody: {
+  gateBody: {
     color: theme.colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 24
+  },
+  inlineLink: {
+    alignSelf: "flex-start",
+    color: theme.colors.accent,
     fontSize: 15,
-    lineHeight: 22
+    fontWeight: "800"
   }
 });

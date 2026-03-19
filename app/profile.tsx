@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -155,6 +156,12 @@ export default function ProfileScreen() {
           <Text style={styles.value}>{user?.displayName ?? "Not signed in"}</Text>
           <Text style={styles.label}>Role</Text>
           <Text style={styles.value}>{user?.role ?? "Not assigned"}</Text>
+
+          {user ? (
+            <Pressable onPress={() => router.push("/settings" as never)} style={styles.settingsLink}>
+              <Text style={styles.settingsLinkText}>Open account settings</Text>
+            </Pressable>
+          ) : null}
 
           {!isAdmin ? <Text style={styles.label}>Interests</Text> : null}
           {!isAdmin ? <Text style={styles.value}>{interests}</Text> : null}
@@ -423,5 +430,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     lineHeight: 20
+  },
+  settingsLink: {
+    alignSelf: "flex-start",
+    backgroundColor: theme.colors.accent,
+    borderRadius: theme.radii.pill,
+    marginTop: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm
+  },
+  settingsLinkText: {
+    color: theme.colors.surface,
+    fontSize: 14,
+    fontWeight: "800"
   }
 });

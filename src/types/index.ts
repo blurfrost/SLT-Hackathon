@@ -39,6 +39,17 @@ export type UserLoginInput = {
   password: string;
 };
 
+export type CreateAnnouncementInput = {
+  title: string;
+  tags: TagId[];
+  authorName: string;
+  body?: string;
+  description?: string;
+  summary?: string;
+  category?: string;
+  audience?: UserRole[];
+};
+
 export type Announcement = {
   id: string;
   title: string;

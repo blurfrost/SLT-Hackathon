@@ -63,6 +63,10 @@ export default function HomeScreen() {
     }
   };
 
+  const handleOpenSettings = () => {
+    router.push("/settings" as never);
+  };
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
@@ -72,6 +76,9 @@ export default function HomeScreen() {
               <Text style={styles.privilegeBadgeText}>{privilegeLabel}</Text>
             </View>
             <Text style={styles.userName}>{state.currentUser.displayName}</Text>
+            <Pressable onPress={handleOpenSettings} style={styles.settingsButton}>
+              <Text style={styles.settingsButtonText}>Settings</Text>
+            </Pressable>
             <Pressable
               disabled={state.isLoading}
               onPress={handleLogout}
@@ -178,6 +185,19 @@ const styles = StyleSheet.create({
     opacity: 0.72
   },
   logoutButtonText: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  settingsButton: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.pill,
+    borderWidth: 1,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm
+  },
+  settingsButtonText: {
     color: theme.colors.textPrimary,
     fontSize: 14,
     fontWeight: "700"
