@@ -1,5 +1,5 @@
 import { FirebaseError } from "firebase/app";
-import { createUserWithEmailAndPassword, deleteUser, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, deleteUser, signInWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
 import { firebaseAuth, firebaseDb } from "@/lib/firebase";
@@ -86,6 +86,15 @@ export const authService = {
         throw new Error("No user profile was found for this account.");
       }
 
+      const userProfile = userSnapshot.data() as UserProfile;
+
+      return {
+        id: credentials.user.uid,
+        displayName: userProfile.displayName,
+        email: userProfile.email,
+        role: userProfile.role,
+        interests: userProfile.interests ?? []
+      };
       if (userProfile.role !== input.role) {
         throw new Error(`This account is registered as ${userProfile.role}, not ${input.role}.`);
       }
@@ -96,6 +105,14 @@ export const authService = {
         throw error;
       }
 
+      throw new Error(formatAuthError(error));
+    }
+  },
+
+  async logoutUser(): Promise<void> {
+    try {
+      await signOut(firebaseAuth);
+    } catch (error) {
       throw new Error(formatAuthError(error));
     }
   }

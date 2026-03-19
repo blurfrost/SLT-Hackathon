@@ -28,7 +28,6 @@ export type UserRegistrationInput = {
 export type UserLoginInput = {
   email: string;
   password: string;
-  role: UserRole;
 };
 
 export type Announcement = {
