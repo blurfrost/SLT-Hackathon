@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useContext, useReducer } from "react";
+import { PropsWithChildren, createContext, useCallback, useContext, useMemo, useReducer } from "react";
 
 import { AppAction, AppContextValue, AppState } from "@/types";
 
@@ -41,30 +41,53 @@ function appReducer(state: AppState, action: AppAction): AppState {
 export function AppProvider({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  const value: AppContextValue = {
-    state,
-    dispatch,
-    setCurrentUser: (user) =>
+  const setCurrentUser = useCallback(
+    (user: AppState["currentUser"]) =>
       dispatch({
         type: "SET_CURRENT_USER",
         payload: user
       }),
-    setAnnouncements: (announcements) =>
+    []
+  );
+
+  const setAnnouncements = useCallback(
+    (announcements: AppState["announcements"]) =>
       dispatch({
         type: "SET_ANNOUNCEMENTS",
         payload: announcements
       }),
-    setLoading: (isLoading) =>
+    []
+  );
+
+  const setLoading = useCallback(
+    (isLoading: boolean) =>
       dispatch({
         type: "SET_LOADING",
         payload: isLoading
       }),
-    setSelectedAnnouncement: (announcementId) =>
+    []
+  );
+
+  const setSelectedAnnouncement = useCallback(
+    (announcementId: string | null) =>
       dispatch({
         type: "SET_SELECTED_ANNOUNCEMENT",
         payload: announcementId
-      })
-  };
+      }),
+    []
+  );
+
+  const value: AppContextValue = useMemo(
+    () => ({
+      state,
+      dispatch,
+      setCurrentUser,
+      setAnnouncements,
+      setLoading,
+      setSelectedAnnouncement
+    }),
+    [state, setCurrentUser, setAnnouncements, setLoading, setSelectedAnnouncement]
+  );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
