@@ -61,16 +61,18 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Community announcement framework</Text>
-          <Text style={styles.title}>BigCommunity keeps updates visible, organized, and easy to extend.</Text>
+          <Text style={styles.eyebrow}>Welcome</Text>
+          <Text style={styles.title}>Welcome to BigCommunity</Text>
           <Text style={styles.subtitle}>
-            Start with a clear structure for registration, persistent data, and cross-page information sharing.
+            Stay connected with the latest updates, events, and announcements from the community.
           </Text>
 
           <View style={styles.heroActions}>
-            <Link href="/announcements" style={styles.primaryAction}>
-              Browse announcements
-            </Link>
+            {state.currentUser?.role === "organiser" ? (
+              <Pressable onPress={() => router.push("/announcements/create" as never)} style={styles.primaryAction}>
+                <Text style={styles.primaryActionText}>Create announcement</Text>
+              </Pressable>
+            ) : null}
 
             {!state.currentUser ? (
               <Link href="/login" style={styles.secondaryAction}>
@@ -80,13 +82,15 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        <View style={styles.partition} />
+
         <SectionHeader
-          title="Featured announcements"
-          subtitle="These cards are driven by typed data and can later be sourced from Firestore."
+          title="Announcements"
+          subtitle="See everything happening in BigCommunity in one place."
         />
 
         <View style={styles.grid}>
-          {state.announcements.slice(0, 3).map((announcement) => (
+          {state.announcements.map((announcement) => (
             <AnnouncementCard key={announcement.id} announcement={announcement} />
           ))}
         </View>
@@ -164,12 +168,8 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   hero: {
-    backgroundColor: theme.colors.card,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
     gap: theme.spacing.md,
-    padding: theme.spacing.xl
+    paddingVertical: theme.spacing.md
   },
   eyebrow: {
     color: theme.colors.accent,
@@ -190,25 +190,29 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     maxWidth: 720
   },
-  primaryAction: {
-    alignSelf: "flex-start",
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radii.pill,
-    color: theme.colors.surface,
-    fontSize: 15,
-    fontWeight: "700",
-    minHeight: 44,
-    overflow: "hidden",
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    textAlign: "center"
-  },
   heroActions: {
     alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: theme.spacing.md,
     marginTop: theme.spacing.sm
+  },
+  primaryAction: {
+    alignSelf: "flex-start",
+    backgroundColor: theme.colors.accent,
+    borderRadius: theme.radii.pill,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md
+  },
+  primaryActionText: {
+    color: theme.colors.surface,
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  partition: {
+    backgroundColor: theme.colors.border,
+    height: 1,
+    width: "100%"
   },
   secondaryAction: {
     alignSelf: "flex-start",

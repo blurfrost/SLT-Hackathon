@@ -49,6 +49,13 @@ export type Announcement = {
   publishedAt: string;
 };
 
+export type EventSignup = {
+  id: string;
+  name: string;
+  email: string;
+  userId: string | null;
+};
+
 export type AppState = {
   announcements: Announcement[];
   currentUser: UserProfile | null;

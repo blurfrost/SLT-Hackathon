@@ -3,14 +3,15 @@ import {
   collection,
   doc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
-  updateDoc,
   where,
   writeBatch
 } from "firebase/firestore";
 
 import { firebaseDb } from "@/lib/firebase";
+import { EventSignup } from "@/types";
 
 type SignupPayload = {
   eventId: string;
@@ -24,14 +25,8 @@ export async function submitSignup(payload: SignupPayload) {
     throw new Error("Please log in before signing up for an event.");
   }
 
-  const alreadySignedUp = await checkIfSignedUp(payload.eventId, payload.userId);
-
-  if (alreadySignedUp) {
-    throw new Error("You have already signed up for this event.");
-  }
-
   const signupsRef = collection(firebaseDb, "events", payload.eventId, "signups");
-  const signupRef = doc(signupsRef);
+  const signupRef = doc(signupsRef, payload.userId);
   const userRef = doc(firebaseDb, "users", payload.userId);
 
   const batch = writeBatch(firebaseDb);
@@ -43,11 +38,68 @@ export async function submitSignup(payload: SignupPayload) {
     signedUpAt: serverTimestamp()
   });
 
-  batch.update(userRef, {
-    signedUpEventIds: arrayUnion(payload.eventId)
-  });
+  batch.set(
+    userRef,
+    {
+      signedUpEventIds: arrayUnion(payload.eventId)
+    },
+    {
+      merge: true
+    }
+  );
 
   await batch.commit();
+}
+
+export async function listEventSignups(eventId: string): Promise<EventSignup[]> {
+  const signupsRef = collection(firebaseDb, "events", eventId, "signups");
+  const snapshot = await getDocs(signupsRef);
+
+  return snapshot.docs
+    .map((signupDoc) => {
+      const signup = signupDoc.data() as Partial<EventSignup>;
+
+      return {
+        id: signupDoc.id,
+        name: signup.name ?? "",
+        email: signup.email ?? "",
+        userId: signup.userId ?? null
+      };
+    })
+    .filter((signup) => signup.name);
+}
+
+export function subscribeToEventSignups(
+  eventId: string,
+  onNext: (signups: EventSignup[]) => void,
+  onError?: (error: Error) => void
+) {
+  const signupsRef = collection(firebaseDb, "events", eventId, "signups");
+
+  return onSnapshot(
+    signupsRef,
+    (snapshot) => {
+      const signups = snapshot.docs
+        .map((signupDoc) => {
+          const signup = signupDoc.data() as Partial<EventSignup>;
+
+          return {
+            id: signupDoc.id,
+            name: signup.name ?? "",
+            email: signup.email ?? "",
+            userId: signup.userId ?? null
+          };
+        })
+        .filter((signup) => signup.name);
+
+      onNext(signups);
+    },
+    (error) => {
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
 }
 
 export async function checkIfSignedUp(eventId: string, userId: string | null): Promise<boolean> {

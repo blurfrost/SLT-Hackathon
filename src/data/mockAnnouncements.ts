@@ -1,4 +1,4 @@
-import { Announcement, UserProfile } from "@/types";
+import { Announcement, EventSignup, UserProfile } from "@/types";
 
 export const mockCurrentUser: UserProfile = {
   id: "user-001",
@@ -44,3 +44,40 @@ export const mockAnnouncements: Announcement[] = [
     publishedAt: "16 Mar 2026"
   }
 ];
+
+export const mockEventSignups: Record<string, EventSignup[]> = {
+  "announce-001": [
+    {
+      id: "user-101",
+      name: "Aisha Rahman",
+      email: "aisha@bigcommunity.app",
+      userId: "user-101"
+    },
+    {
+      id: "user-102",
+      name: "Marcus Lee",
+      email: "marcus@bigcommunity.app",
+      userId: "user-102"
+    },
+    {
+      id: "user-103",
+      name: "Priya Nair",
+      email: "priya@bigcommunity.app",
+      userId: "user-103"
+    }
+  ],
+  "announce-002": [
+    {
+      id: "user-104",
+      name: "Daniel Tan",
+      email: "daniel@bigcommunity.app",
+      userId: "user-104"
+    },
+    {
+      id: "user-105",
+      name: "Siti Noor",
+      email: "siti@bigcommunity.app",
+      userId: "user-105"
+    }
+  ]
+};

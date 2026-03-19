@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp, writeBatch } from "firebase/firestore";
 
 import { mockAnnouncements } from "@/data/mockAnnouncements";
 import { firebaseDb } from "@/lib/firebase";
@@ -44,21 +44,34 @@ const allRoles: UserRole[] = ["admin", "member", "organiser"];
 export const announcementService = {
   async ensureAnnouncementsBootstrapped(): Promise<void> {
     const bootstrapSnapshot = await getDoc(bootstrapDocRef);
+    const batch = writeBatch(firebaseDb);
+    let shouldCommit = false;
 
-    if (bootstrapSnapshot.exists()) {
-      return;
+    if (!bootstrapSnapshot.exists()) {
+      for (const announcement of mockAnnouncements) {
+        const announcementRef = doc(firebaseDb, "announcements", announcement.id);
+        const announcementSnapshot = await getDoc(announcementRef);
+
+        if (announcementSnapshot.exists()) {
+          continue;
+        }
+
+        batch.set(announcementRef, announcement);
+        shouldCommit = true;
+      }
+
+      if (!bootstrapSnapshot.exists()) {
+        batch.set(bootstrapDocRef, {
+          seededAt: new Date().toISOString(),
+          seededCount: mockAnnouncements.length
+        });
+        shouldCommit = true;
+      }
     }
 
-    const batch = writeBatch(firebaseDb);
-
-    mockAnnouncements.forEach((announcement) => {
-      batch.set(doc(firebaseDb, "announcements", announcement.id), announcement);
-    });
-
-    batch.set(bootstrapDocRef, {
-      seededAt: new Date().toISOString(),
-      seededCount: mockAnnouncements.length
-    });
+    if (!shouldCommit) {
+      return;
+    }
 
     await batch.commit();
   },
