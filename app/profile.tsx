@@ -30,6 +30,14 @@ export default function ProfileScreen() {
       ? user.interests.map((tagId) => tagLabelMap.get(tagId) ?? tagId).join(", ")
       : "No interests set";
 
+  const signedUpEvents =
+    user && user.signedUpEventIds.length > 0
+      ? state.announcements
+          .filter((announcement) => user.signedUpEventIds.includes(announcement.id))
+          .map((announcement) => announcement.title)
+          .join(", ")
+      : "No event signups yet";
+
   useEffect(() => {
     setSelectedInterests(user?.interests ?? []);
   }, [user?.interests]);
@@ -147,16 +155,21 @@ export default function ProfileScreen() {
           <Text style={styles.value}>{user?.displayName ?? "Not signed in"}</Text>
           <Text style={styles.label}>Role</Text>
           <Text style={styles.value}>{user?.role ?? "Not assigned"}</Text>
+
           {!isAdmin ? <Text style={styles.label}>Interests</Text> : null}
           {!isAdmin ? <Text style={styles.value}>{interests}</Text> : null}
+
+          {!isAdmin ? <Text style={styles.label}>Signed Up Events</Text> : null}
+          {!isAdmin ? <Text style={styles.value}>{signedUpEvents}</Text> : null}
+
           <Text style={styles.label}>{isAdmin ? "Visible announcements" : "Matching event notifications"}</Text>
           <Text style={styles.value}>
             {user
               ? matchedAnnouncements.length > 0
                 ? matchedAnnouncements.map((announcement) => announcement.title).join("\n")
                 : isAdmin
-                  ? "No announcements available yet"
-                  : "No matching announcements yet"
+                ? "No announcements available yet"
+                : "No matching announcements yet"
               : "Sign in to see matched notifications"}
           </Text>
         </View>

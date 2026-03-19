@@ -1,5 +1,5 @@
 import { FirebaseError } from "firebase/app";
-import { createUserWithEmailAndPassword, deleteUser, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, deleteUser, signInWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
 import { firebaseAuth, firebaseDb } from "@/lib/firebase";
@@ -29,6 +29,25 @@ function formatAuthError(error: unknown): string {
 }
 
 export const authService = {
+  async getUserProfileById(userId: string): Promise<UserProfile | null> {
+    const userSnapshot = await getDoc(doc(firebaseDb, "users", userId));
+
+    if (!userSnapshot.exists()) {
+      return null;
+    }
+
+    const userProfile = userSnapshot.data() as UserProfile;
+
+    return {
+      id: userId,
+      displayName: userProfile.displayName,
+      email: userProfile.email,
+      role: userProfile.role,
+      interests: normalizeTagIds(userProfile.interests ?? []),
+      signedUpEventIds: userProfile.signedUpEventIds ?? []
+    };
+  },
+
   async registerUser(input: UserRegistrationInput): Promise<UserProfile> {
     try {
       const credentials = await createUserWithEmailAndPassword(firebaseAuth, input.email.trim(), input.password);
@@ -42,7 +61,8 @@ export const authService = {
         displayName: input.displayName,
         email: input.email.trim(),
         role: input.role,
-        interests: normalizeTagIds(input.interests)
+        interests: normalizeTagIds(input.interests),
+        signedUpEventIds: []
       };
 
       try {
@@ -64,30 +84,26 @@ export const authService = {
   async loginUser(input: UserLoginInput): Promise<UserProfile> {
     try {
       const credentials = await signInWithEmailAndPassword(firebaseAuth, input.email.trim(), input.password);
-      const userSnapshot = await getDoc(doc(firebaseDb, "users", credentials.user.uid));
+      const userProfile = await this.getUserProfileById(credentials.user.uid);
 
-      if (!userSnapshot.exists()) {
+      if (!userProfile) {
         throw new Error("No user profile was found for this account.");
       }
 
-      const userProfile = userSnapshot.data() as UserProfile;
-
-      if (userProfile.role !== input.role) {
-        throw new Error(`This account is registered as ${userProfile.role}, not ${input.role}.`);
-      }
-
-      return {
-        id: credentials.user.uid,
-        displayName: userProfile.displayName,
-        email: userProfile.email,
-        role: userProfile.role,
-        interests: normalizeTagIds(userProfile.interests ?? [])
-      };
+      return userProfile;
     } catch (error) {
       if (error instanceof Error && !(error instanceof FirebaseError)) {
         throw error;
       }
 
+      throw new Error(formatAuthError(error));
+    }
+  },
+
+  async logoutUser(): Promise<void> {
+    try {
+      await signOut(firebaseAuth);
+    } catch (error) {
       throw new Error(formatAuthError(error));
     }
   }

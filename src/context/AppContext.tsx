@@ -1,8 +1,18 @@
-import { PropsWithChildren, createContext, useContext, useReducer } from "react";
+import { PropsWithChildren, createContext, useCallback, useContext, useMemo, useReducer } from "react";
 
-import { mockAnnouncements } from "@/data/mockAnnouncements";
 import { availableTags } from "@/data/tagOptions";
-import { Announcement, AnnouncementInput, AppAction, AppContextValue, AppState, Tag, TagId, TagInput, UserProfile, UserRole } from "@/types";
+import {
+  Announcement,
+  AnnouncementInput,
+  AppAction,
+  AppContextValue,
+  AppState,
+  Tag,
+  TagId,
+  TagInput,
+  UserProfile,
+  UserRole
+} from "@/types";
 
 const defaultAudience: UserRole[] = ["admin", "member", "organiser"];
 
@@ -20,6 +30,7 @@ function makeTagId(label: string): TagId {
 
 function filterKnownTagIds(tags: TagId[], knownTags: Tag[]): TagId[] {
   const validTagIds = new Set(knownTags.map((tag) => tag.id));
+
   return normalizeTagIds(tags).filter((tagId) => validTagIds.has(tagId));
 }
 
@@ -34,15 +45,16 @@ function formatPublishedDate() {
 function sanitizeUserProfile(user: UserProfile, knownTags: Tag[]): UserProfile {
   return {
     ...user,
-    interests: filterKnownTagIds(user.interests, knownTags)
+    interests: filterKnownTagIds(user.interests, knownTags),
+    signedUpEventIds: user.signedUpEventIds ?? []
   };
 }
 
 const initialState: AppState = {
-  announcements: mockAnnouncements,
+  announcements: [],
   tags: availableTags,
   currentUser: null,
-  selectedAnnouncementId: mockAnnouncements[0]?.id ?? null,
+  selectedAnnouncementId: null,
   isLoading: false
 };
 
@@ -143,25 +155,44 @@ function appReducer(state: AppState, action: AppAction): AppState {
 export function AppProvider({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  const value: AppContextValue = {
-    state,
-    dispatch,
-    setCurrentUser: (user) =>
+  const setCurrentUser = useCallback(
+    (user: AppState["currentUser"]) =>
       dispatch({
         type: "SET_CURRENT_USER",
         payload: user ? sanitizeUserProfile(user, state.tags) : null
       }),
-    setLoading: (isLoading) =>
+    [state.tags]
+  );
+
+  const setAnnouncements = useCallback(
+    (announcements: AppState["announcements"]) =>
+      dispatch({
+        type: "SET_ANNOUNCEMENTS",
+        payload: announcements
+      }),
+    []
+  );
+
+  const setLoading = useCallback(
+    (isLoading: boolean) =>
       dispatch({
         type: "SET_LOADING",
         payload: isLoading
       }),
-    setSelectedAnnouncement: (announcementId) =>
+    []
+  );
+
+  const setSelectedAnnouncement = useCallback(
+    (announcementId: string | null) =>
       dispatch({
         type: "SET_SELECTED_ANNOUNCEMENT",
         payload: announcementId
       }),
-    createAnnouncement: (input: AnnouncementInput) => {
+    []
+  );
+
+  const createAnnouncement = useCallback(
+    (input: AnnouncementInput) => {
       const announcement: Announcement = {
         id: `announce-${Date.now()}`,
         title: input.title.trim(),
@@ -184,7 +215,11 @@ export function AppProvider({ children }: PropsWithChildren) {
         payload: announcement.id
       });
     },
-    updateAnnouncement: (announcementId: string, input: AnnouncementInput) => {
+    [state.currentUser?.displayName, state.tags]
+  );
+
+  const updateAnnouncement = useCallback(
+    (announcementId: string, input: AnnouncementInput) => {
       const existingAnnouncement = state.announcements.find((announcement) => announcement.id === announcementId);
 
       if (!existingAnnouncement) {
@@ -206,17 +241,29 @@ export function AppProvider({ children }: PropsWithChildren) {
         payload: nextAnnouncement
       });
     },
-    deleteAnnouncement: (announcementId: string) =>
+    [state.announcements, state.tags]
+  );
+
+  const deleteAnnouncement = useCallback(
+    (announcementId: string) =>
       dispatch({
         type: "DELETE_ANNOUNCEMENT",
         payload: announcementId
       }),
-    updateCurrentUserInterests: (interests: TagId[]) =>
+    []
+  );
+
+  const updateCurrentUserInterests = useCallback(
+    (interests: TagId[]) =>
       dispatch({
         type: "UPDATE_CURRENT_USER_INTERESTS",
         payload: interests
       }),
-    createTag: (input: TagInput) => {
+    []
+  );
+
+  const createTag = useCallback(
+    (input: TagInput) => {
       const cleanLabel = input.label.trim();
       const cleanDescription = input.description.trim();
       const baseTagId = makeTagId(cleanLabel) || `tag-${state.tags.length + 1}`;
@@ -238,7 +285,11 @@ export function AppProvider({ children }: PropsWithChildren) {
         }
       });
     },
-    updateTag: (tagId: TagId, input: TagInput) => {
+    [state.tags]
+  );
+
+  const updateTag = useCallback(
+    (tagId: TagId, input: TagInput) => {
       const existingTag = state.tags.find((tag) => tag.id === tagId);
 
       if (!existingTag) {
@@ -254,12 +305,49 @@ export function AppProvider({ children }: PropsWithChildren) {
         }
       });
     },
-    deleteTag: (tagId: TagId) =>
+    [state.tags]
+  );
+
+  const deleteTag = useCallback(
+    (tagId: TagId) =>
       dispatch({
         type: "DELETE_TAG",
         payload: tagId
-      })
-  };
+      }),
+    []
+  );
+
+  const value: AppContextValue = useMemo(
+    () => ({
+      state,
+      dispatch,
+      setCurrentUser,
+      setAnnouncements,
+      setLoading,
+      setSelectedAnnouncement,
+      createAnnouncement,
+      updateAnnouncement,
+      deleteAnnouncement,
+      updateCurrentUserInterests,
+      createTag,
+      updateTag,
+      deleteTag
+    }),
+    [
+      state,
+      setCurrentUser,
+      setAnnouncements,
+      setLoading,
+      setSelectedAnnouncement,
+      createAnnouncement,
+      updateAnnouncement,
+      deleteAnnouncement,
+      updateCurrentUserInterests,
+      createTag,
+      updateTag,
+      deleteTag
+    ]
+  );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

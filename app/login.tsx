@@ -1,20 +1,18 @@
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { AuthRoleSelector } from "@/components/AuthRoleSelector";
 import { Screen } from "@/components/Screen";
-import { roleDescriptions } from "@/data/tagOptions";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
+import { announcementService } from "@/services/announcementService";
 import { authService } from "@/services/authService";
-import { UserRole } from "@/types";
 
 export default function LoginScreen() {
-  const { setCurrentUser, setLoading, state } = useAppContext();
+  const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
+  const { setAnnouncements, setCurrentUser, setLoading, state } = useAppContext();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("member");
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleLogin = async () => {
@@ -29,12 +27,14 @@ export default function LoginScreen() {
 
       const user = await authService.loginUser({
         email,
-        password,
-        role
+        password
       });
+      await announcementService.ensureAnnouncementsBootstrapped();
+      const announcements = await announcementService.listAnnouncements();
 
+      setAnnouncements(announcements);
       setCurrentUser(user);
-      router.replace("/");
+      router.replace((redirectTo || "/") as never);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to log in right now.");
     } finally {
@@ -48,7 +48,7 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Login</Text>
           <Text style={styles.title}>Welcome back to BigCommunity.</Text>
-          <Text style={styles.subtitle}>Log in with your role so the app can route you to the right tools and messages.</Text>
+          <Text style={styles.subtitle}>Log in with your email and password to continue.</Text>
         </View>
 
         <View style={styles.card}>
@@ -73,13 +73,6 @@ export default function LoginScreen() {
             value={password}
           />
 
-          <AuthRoleSelector selectedRole={role} onSelectRole={setRole} />
-
-          <View style={styles.rolePanel}>
-            <Text style={styles.rolePanelTitle}>{roleDescriptions[role].title}</Text>
-            <Text style={styles.rolePanelBody}>{roleDescriptions[role].description}</Text>
-          </View>
-
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
           <Pressable
@@ -92,7 +85,13 @@ export default function LoginScreen() {
 
           <View style={styles.linkRow}>
             <Text style={styles.linkLabel}>Need an account?</Text>
-            <Link href="./register" style={styles.linkText}>
+            <Link
+              href={{
+                pathname: "/register",
+                params: redirectTo ? { redirectTo } : undefined
+              }}
+              style={styles.linkText}
+            >
               Register here
             </Link>
           </View>
@@ -152,23 +151,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md
-  },
-  rolePanel: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radii.md,
-    gap: theme.spacing.xs,
-    marginTop: theme.spacing.md,
-    padding: theme.spacing.md
-  },
-  rolePanelTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "700"
-  },
-  rolePanelBody: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 22
   },
   primaryButton: {
     alignItems: "center",
