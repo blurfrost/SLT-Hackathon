@@ -1,6 +1,5 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo, useReducer } from "react";
 
-import { availableTags } from "@/data/tagOptions";
 import {
   Announcement,
   AnnouncementInput,
@@ -29,6 +28,10 @@ function makeTagId(label: string): TagId {
 }
 
 function filterKnownTagIds(tags: TagId[], knownTags: Tag[]): TagId[] {
+  if (knownTags.length === 0) {
+    return normalizeTagIds(tags);
+  }
+
   const validTagIds = new Set(knownTags.map((tag) => tag.id));
 
   return normalizeTagIds(tags).filter((tagId) => validTagIds.has(tagId));
@@ -52,7 +55,7 @@ function sanitizeUserProfile(user: UserProfile, knownTags: Tag[]): UserProfile {
 
 const initialState: AppState = {
   announcements: [],
-  tags: availableTags,
+  tags: [],
   currentUser: null,
   selectedAnnouncementId: null,
   isLoading: false
@@ -76,6 +79,21 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         announcements: action.payload
+      };
+    case "SET_TAGS":
+      return {
+        ...state,
+        tags: action.payload,
+        announcements: state.announcements.map((announcement) => ({
+          ...announcement,
+          tags: filterKnownTagIds(announcement.tags, action.payload)
+        })),
+        currentUser: state.currentUser
+          ? {
+              ...state.currentUser,
+              interests: filterKnownTagIds(state.currentUser.interests, action.payload)
+            }
+          : null
       };
     case "SET_SELECTED_ANNOUNCEMENT":
       return {
@@ -169,6 +187,15 @@ export function AppProvider({ children }: PropsWithChildren) {
       dispatch({
         type: "SET_ANNOUNCEMENTS",
         payload: announcements
+      }),
+    []
+  );
+
+  const setTags = useCallback(
+    (tags: AppState["tags"]) =>
+      dispatch({
+        type: "SET_TAGS",
+        payload: tags
       }),
     []
   );
@@ -323,6 +350,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       dispatch,
       setCurrentUser,
       setAnnouncements,
+      setTags,
       setLoading,
       setSelectedAnnouncement,
       createAnnouncement,
@@ -337,6 +365,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       state,
       setCurrentUser,
       setAnnouncements,
+      setTags,
       setLoading,
       setSelectedAnnouncement,
       createAnnouncement,

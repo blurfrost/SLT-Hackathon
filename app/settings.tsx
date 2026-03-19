@@ -6,7 +6,6 @@ import { Screen } from "@/components/Screen";
 import { TagSelector } from "@/components/TagSelector";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
-import { availableTags } from "@/data/tagOptions";
 import { authService } from "@/services/authService";
 
 export default function SettingsScreen() {
@@ -86,7 +85,7 @@ export default function SettingsScreen() {
           <TagSelector
             title={tagTitle}
             helperText={helperText}
-            tags={availableTags}
+            tags={state.tags}
             selectedTags={selectedTags}
             onToggleTag={toggleTag}
           />

@@ -11,13 +11,29 @@ import { useAppContext } from "@/context/AppContext";
 import { firebaseAuth } from "@/lib/firebase";
 import { announcementService } from "@/services/announcementService";
 import { authService } from "@/services/authService";
+import { tagService } from "@/services/tagService";
 
 function AppBootstrap() {
-  const { setAnnouncements, setCurrentUser } = useAppContext();
+  const { setAnnouncements, setCurrentUser, setTags } = useAppContext();
 
   useEffect(() => {
+    let unsubscribeTags: (() => void) | undefined;
+
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser) {
+        if (unsubscribeTags) {
+          unsubscribeTags();
+          unsubscribeTags = undefined;
+        }
+
+        try {
+          const tags = await tagService.listTags();
+          setTags(tags);
+        } catch (error) {
+          console.error("Failed to load public tags", error);
+          setTags([]);
+        }
+
         setCurrentUser(null);
         setAnnouncements([]);
         return;
@@ -26,19 +42,43 @@ function AppBootstrap() {
       try {
         const [userProfile] = await Promise.all([
           authService.getUserProfileById(firebaseUser.uid),
-          announcementService.ensureAnnouncementsBootstrapped()
+          announcementService.ensureAnnouncementsBootstrapped(),
+          tagService.ensureTagsBootstrapped()
         ]);
-        const announcements = await announcementService.listAnnouncements();
+        const [announcements, tags] = await Promise.all([
+          announcementService.listAnnouncements(),
+          tagService.listTags()
+        ]);
 
+        setTags(tags);
         setCurrentUser(userProfile);
         setAnnouncements(announcements);
+
+        if (unsubscribeTags) {
+          unsubscribeTags();
+        }
+
+        unsubscribeTags = tagService.subscribeToTags(
+          (nextTags) => {
+            setTags(nextTags);
+          },
+          (error) => {
+            console.error("Failed to sync tags", error);
+          }
+        );
       } catch (error) {
         console.error("Failed to restore app session", error);
       }
     });
 
-    return unsubscribe;
-  }, [setAnnouncements, setCurrentUser]);
+    return () => {
+      unsubscribe();
+
+      if (unsubscribeTags) {
+        unsubscribeTags();
+      }
+    };
+  }, [setAnnouncements, setCurrentUser, setTags]);
 
   return null;
 }

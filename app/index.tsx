@@ -1,5 +1,4 @@
 import { Link, router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AnnouncementCard } from "@/components/AnnouncementCard";
@@ -8,38 +7,10 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
 import { roleOptions } from "@/data/tagOptions";
-import { announcementService } from "@/services/announcementService";
 import { authService } from "@/services/authService";
-import { Announcement } from "@/types";
 
 export default function HomeScreen() {
   const { state, setCurrentUser, setLoading } = useAppContext();
-  const [homeAnnouncements, setHomeAnnouncements] = useState<Announcement[]>(state.announcements);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadAnnouncements = async () => {
-      const announcementsForHome = await announcementService.listAnnouncementsForUser(state.currentUser, state.announcements);
-
-      if (isMounted) {
-        setHomeAnnouncements(announcementsForHome);
-      }
-    };
-
-    void loadAnnouncements();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [state.announcements, state.currentUser]);
-
-  const featuredAnnouncements = useMemo(() => homeAnnouncements.slice(0, 3), [homeAnnouncements]);
-
-  const usesTagMatching = state.currentUser?.role === "member" || state.currentUser?.role === "organiser";
-  const featuredSubtitle = usesTagMatching
-    ? "Showing only announcements that match the tags you selected."
-    : "These cards are driven by typed data and can later be sourced from Firestore.";
 
   const privilegeLabel = state.currentUser
     ? roleOptions.find((option) => option.value === state.currentUser?.role)?.label ?? "Member"
@@ -115,19 +86,15 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <SectionHeader title="Featured announcements" subtitle={featuredSubtitle} />
+        <SectionHeader title="Announcements" subtitle="See all announcements in one place." />
 
         <View style={styles.grid}>
-          {featuredAnnouncements.length > 0 ? (
-            featuredAnnouncements.map((announcement) => <AnnouncementCard key={announcement.id} announcement={announcement} />)
+          {state.announcements.length > 0 ? (
+            state.announcements.map((announcement) => <AnnouncementCard key={announcement.id} announcement={announcement} />)
           ) : (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No matching announcements yet</Text>
-              <Text style={styles.emptyBody}>
-                {usesTagMatching
-                  ? "Update your tag preferences in your profile to receive announcements relevant to you."
-                  : "There are no announcements available right now."}
-              </Text>
+              <Text style={styles.emptyTitle}>No announcements yet</Text>
+              <Text style={styles.emptyBody}>There are no announcements available right now.</Text>
             </View>
           )}
         </View>

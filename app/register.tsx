@@ -10,16 +10,17 @@ import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
 import { announcementService } from "@/services/announcementService";
 import { authService } from "@/services/authService";
+import { tagService } from "@/services/tagService";
 import { TagId, UserRole } from "@/types";
 
 export default function RegisterScreen() {
   const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
-  const { setAnnouncements, setCurrentUser, setLoading, state } = useAppContext();
+  const { setAnnouncements, setCurrentUser, setLoading, setTags, state } = useAppContext();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("member");
-  const [selectedTags, setSelectedTags] = useState<TagId[]>(["events", "updates"]);
+  const [selectedTags, setSelectedTags] = useState<TagId[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const shouldSelectTagsDuringRegistration = role === "member";
 
@@ -51,9 +52,10 @@ export default function RegisterScreen() {
         role,
         interests: shouldSelectTagsDuringRegistration ? selectedTags : []
       });
-      await announcementService.ensureAnnouncementsBootstrapped();
-      const announcements = await announcementService.listAnnouncements();
+      await Promise.all([announcementService.ensureAnnouncementsBootstrapped(), tagService.ensureTagsBootstrapped()]);
+      const [announcements, tags] = await Promise.all([announcementService.listAnnouncements(), tagService.listTags()]);
 
+      setTags(tags);
       setAnnouncements(announcements);
       setCurrentUser(user);
       router.replace((redirectTo || "/") as never);

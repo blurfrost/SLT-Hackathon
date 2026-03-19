@@ -21,30 +21,35 @@ export const roleDescriptions: Record<UserRole, { title: string; description: st
   }
 };
 
-export const availableTags: Tag[] = [
+export const seedTags: Tag[] = [
   {
-    id: "events",
-    label: "Events",
-    description: "Community activities, meetups, and special programmes."
+    id: "spikeball-ig",
+    label: "Spikeball IG",
+    description: "Updates and activities for the Spikeball interest group."
   },
   {
-    id: "volunteers",
-    label: "Volunteers",
-    description: "Volunteer recruitment, duty calls, and coordination updates."
+    id: "rock-climbing-ig",
+    label: "Rock climbing IG",
+    description: "Events and announcements for the rock climbing interest group."
   },
   {
-    id: "wellness",
-    label: "Wellness",
-    description: "Health, support, and wellbeing-related announcements."
+    id: "orca-code",
+    label: "Orca Code",
+    description: "Coding meetups, project sessions, and developer community updates."
   },
   {
-    id: "updates",
-    label: "General Updates",
-    description: "Broad platform or neighbourhood updates for the community."
+    id: "anime-ig",
+    label: "Anime IG",
+    description: "Announcements for anime screenings, chats, and fandom meetups."
   },
   {
-    id: "family",
-    label: "Family",
-    description: "Family-focused activities, services, and reminders."
+    id: "smash-bros",
+    label: "Smash Bros",
+    description: "Tournament news, casual sessions, and Smash Bros community events."
+  },
+  {
+    id: "food-ig",
+    label: "Food IG",
+    description: "Food outings, recommendations, and culinary community gatherings."
   }
 ];

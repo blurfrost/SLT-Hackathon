@@ -100,6 +100,10 @@ export type AppAction =
       payload: Announcement[];
     }
   | {
+      type: "SET_TAGS";
+      payload: Tag[];
+    }
+  | {
       type: "SET_SELECTED_ANNOUNCEMENT";
       payload: string | null;
     }
@@ -136,6 +140,7 @@ export type AppContextValue = {
   state: AppState;
   dispatch: Dispatch<AppAction>;
   setAnnouncements: (announcements: Announcement[]) => void;
+  setTags: (tags: Tag[]) => void;
   setSelectedAnnouncement: (announcementId: string | null) => void;
   setCurrentUser: (user: UserProfile | null) => void;
   setLoading: (isLoading: boolean) => void;

@@ -7,10 +7,11 @@ import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
 import { announcementService } from "@/services/announcementService";
 import { authService } from "@/services/authService";
+import { tagService } from "@/services/tagService";
 
 export default function LoginScreen() {
   const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
-  const { setAnnouncements, setCurrentUser, setLoading, state } = useAppContext();
+  const { setAnnouncements, setCurrentUser, setLoading, setTags, state } = useAppContext();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -29,9 +30,10 @@ export default function LoginScreen() {
         email,
         password
       });
-      await announcementService.ensureAnnouncementsBootstrapped();
-      const announcements = await announcementService.listAnnouncements();
+      await Promise.all([announcementService.ensureAnnouncementsBootstrapped(), tagService.ensureTagsBootstrapped()]);
+      const [announcements, tags] = await Promise.all([announcementService.listAnnouncements(), tagService.listTags()]);
 
+      setTags(tags);
       setAnnouncements(announcements);
       setCurrentUser(user);
       router.replace((redirectTo || "/") as never);

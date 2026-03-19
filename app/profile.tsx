@@ -3,19 +3,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Screen } from "@/components/Screen";
-import { TagSelector } from "@/components/TagSelector";
 import { theme } from "@/constants/theme";
 import { useAppContext } from "@/context/AppContext";
 import { announcementService } from "@/services/announcementService";
+import { tagService } from "@/services/tagService";
 import { Announcement, Tag, TagId } from "@/types";
 
 export default function ProfileScreen() {
-  const { state, updateCurrentUserInterests, createTag, updateTag, deleteTag } = useAppContext();
+  const { state, setTags } = useAppContext();
   const user = state.currentUser;
   const isAdmin = user?.role === "admin";
 
   const [matchedAnnouncements, setMatchedAnnouncements] = useState<Announcement[]>([]);
-  const [selectedInterests, setSelectedInterests] = useState<TagId[]>(user?.interests ?? []);
   const [newTagLabel, setNewTagLabel] = useState("");
   const [newTagDescription, setNewTagDescription] = useState("");
   const [editingTagId, setEditingTagId] = useState<TagId | null>(null);
@@ -40,10 +39,6 @@ export default function ProfileScreen() {
       : "No event signups yet";
 
   useEffect(() => {
-    setSelectedInterests(user?.interests ?? []);
-  }, [user?.interests]);
-
-  useEffect(() => {
     let isMounted = true;
 
     announcementService.listAnnouncementsForUser(user, state.announcements).then((announcements) => {
@@ -57,37 +52,26 @@ export default function ProfileScreen() {
     };
   }, [state.announcements, user]);
 
-  const toggleInterestTag = (tagId: TagId) => {
-    setSelectedInterests((currentTags) =>
-      currentTags.includes(tagId) ? currentTags.filter((currentTag) => currentTag !== tagId) : [...currentTags, tagId]
-    );
-  };
-
-  const saveUserInterests = () => {
-    if (!user) {
-      return;
-    }
-
-    updateCurrentUserInterests(selectedInterests);
-    setErrorMessage("");
-    setMessage("Tag preferences updated.");
-  };
-
-  const handleCreateTag = () => {
+  const handleCreateTag = async () => {
     if (!newTagLabel.trim()) {
       setErrorMessage("Tag label is required.");
       return;
     }
 
-    createTag({
-      label: newTagLabel,
-      description: newTagDescription
-    });
+    try {
+      const createdTag = await tagService.createTag({
+        label: newTagLabel,
+        description: newTagDescription
+      });
 
-    setNewTagLabel("");
-    setNewTagDescription("");
-    setErrorMessage("");
-    setMessage("Tag created.");
+      setTags([...state.tags, createdTag].sort((left, right) => left.label.localeCompare(right.label)));
+      setNewTagLabel("");
+      setNewTagDescription("");
+      setErrorMessage("");
+      setMessage("Tag created.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to create the tag right now.");
+    }
   };
 
   const beginTagEdit = (tag: Tag) => {
@@ -98,7 +82,7 @@ export default function ProfileScreen() {
     setMessage("");
   };
 
-  const saveTagEdit = () => {
+  const saveTagEdit = async () => {
     if (!editingTagId) {
       return;
     }
@@ -108,16 +92,21 @@ export default function ProfileScreen() {
       return;
     }
 
-    updateTag(editingTagId, {
-      label: editingTagLabel,
-      description: editingTagDescription
-    });
+    try {
+      const updatedTag = await tagService.updateTag(editingTagId, {
+        label: editingTagLabel,
+        description: editingTagDescription
+      });
 
-    setEditingTagId(null);
-    setEditingTagLabel("");
-    setEditingTagDescription("");
-    setErrorMessage("");
-    setMessage("Tag updated.");
+      setTags(state.tags.map((tag) => (tag.id === updatedTag.id ? updatedTag : tag)));
+      setEditingTagId(null);
+      setEditingTagLabel("");
+      setEditingTagDescription("");
+      setErrorMessage("");
+      setMessage("Tag updated.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to update the tag right now.");
+    }
   };
 
   const removeTag = (tag: Tag) => {
@@ -130,14 +119,21 @@ export default function ProfileScreen() {
         text: "Delete",
         style: "destructive",
         onPress: () => {
-          deleteTag(tag.id);
-          setMessage("Tag deleted.");
+          tagService
+            .deleteTag(tag.id)
+            .then(() => {
+              setTags(state.tags.filter((currentTag) => currentTag.id !== tag.id));
+              setMessage("Tag deleted.");
 
-          if (editingTagId === tag.id) {
-            setEditingTagId(null);
-            setEditingTagLabel("");
-            setEditingTagDescription("");
-          }
+              if (editingTagId === tag.id) {
+                setEditingTagId(null);
+                setEditingTagLabel("");
+                setEditingTagDescription("");
+              }
+            })
+            .catch((error) => {
+              setErrorMessage(error instanceof Error ? error.message : "Unable to delete the tag right now.");
+            });
         }
       }
     ]);
@@ -157,12 +153,6 @@ export default function ProfileScreen() {
           <Text style={styles.label}>Role</Text>
           <Text style={styles.value}>{user?.role ?? "Not assigned"}</Text>
 
-          {user ? (
-            <Pressable onPress={() => router.push("/settings" as never)} style={styles.settingsLink}>
-              <Text style={styles.settingsLinkText}>Open account settings</Text>
-            </Pressable>
-          ) : null}
-
           {!isAdmin ? <Text style={styles.label}>Interests</Text> : null}
           {!isAdmin ? <Text style={styles.value}>{interests}</Text> : null}
 
@@ -180,22 +170,6 @@ export default function ProfileScreen() {
               : "Sign in to see matched notifications"}
           </Text>
         </View>
-
-        {user && !isAdmin ? (
-          <View style={styles.card}>
-            <TagSelector
-              title="My tag preferences"
-              helperText="Select tags you care about. Your home page will only show announcements matching these tags."
-              tags={state.tags}
-              selectedTags={selectedInterests}
-              onToggleTag={toggleInterestTag}
-            />
-
-            <Pressable onPress={saveUserInterests} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Save tag preferences</Text>
-            </Pressable>
-          </View>
-        ) : null}
 
         {isAdmin ? (
           <View style={styles.card}>
@@ -282,6 +256,12 @@ export default function ProfileScreen() {
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         {message ? <Text style={styles.successText}>{message}</Text> : null}
+
+        {user ? (
+          <Pressable onPress={() => router.push("/settings" as never)} style={styles.settingsLink}>
+            <Text style={styles.settingsLinkText}>Open account settings</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Screen>
   );
